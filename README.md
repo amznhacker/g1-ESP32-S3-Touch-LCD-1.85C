@@ -12,9 +12,16 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 
 ### 1. Download Official Demos
 ```bash
-# Get official demos and libraries
-wget https://files.waveshare.com/upload/8/8a/ESP32-S3-Touch-LCD-1.85-Demo.7z
-7z x ESP32-S3-Touch-LCD-1.85-Demo.7z
+# Install required tools
+sudo apt update && sudo apt install -y p7zip-full wget unzip
+
+# Try alternative download methods
+wget https://www.waveshare.com/w/upload/8/8a/ESP32-S3-Touch-LCD-1.85-Demo.7z
+# OR if above fails:
+curl -L -o ESP32-S3-Touch-LCD-1.85-Demo.7z "https://www.waveshare.com/w/upload/8/8a/ESP32-S3-Touch-LCD-1.85-Demo.7z"
+
+# Extract (try both formats)
+unzip ESP32-S3-Touch-LCD-1.85-Demo.zip || 7z x ESP32-S3-Touch-LCD-1.85-Demo.7z
 ```
 
 ### 2. Setup Environment
@@ -27,12 +34,11 @@ docker exec -it esp32-dev bash
 source /opt/esp-idf/export.sh
 ```
 
-### 3. Flash Test Firmware
+### 3. Flash Test Firmware (Optional)
 ```bash
-# Flash official test firmware first
+# Skip if demo download failed - go directly to step 4
+# If demo available:
 esptool.py --chip esp32s3 --port /dev/ttyUSB0 --baud 921600 write_flash -z 0x0 ESP32-S3-Touch-LCD-1.85-Demo/Firmware/firmware.bin
-
-# Reset board - press RESET button
 ```
 
 ### 4. Flash Custom Face Code
@@ -63,6 +69,13 @@ idf.py -p /dev/ttyUSB0 flash monitor
 - Upload (if fails, hold BOOT + press RESET)
 
 ## Troubleshooting
+
+### Download Issues
+```bash
+# If official demos fail to download, skip to custom code:
+./flash.sh
+# This builds and flashes the animated face directly
+```
 
 ### Can't Connect/Flash
 1. Hold **BOOT** button
