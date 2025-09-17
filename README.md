@@ -1,33 +1,46 @@
 # ESP32-S3 Animated Face Project
 
-**Professional Bluetooth Audio Face Animation - Zero Dependencies Setup**
+**Professional Bluetooth Audio Face Animation - Replaces Rainbow Screen**
 
-## Ultra-Lazy Setup (One Command Does Everything)
+## 🚀 Quick Start (Ubuntu)
 
-**Ubuntu/Linux:**
+```bash
+git clone https://github.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C.git
+cd g1-ESP32-S3-Touch-LCD-1.85C
+chmod +x *.sh
+./setup.sh
+python3 auto_flash.py
+```
+
+## 📋 What it does
+
+1. **setup.sh** - Installs everything (Docker, esptool, builds firmware)
+2. **auto_flash.py** - Auto-detects ESP32-S3 and flashes (replaces rainbow screen)
+3. **Creates "ESP32_Face" Bluetooth device** for phone connection
+4. **Real-time face animations** based on audio levels
+
+## 🎯 Expected Result
+
+- ❌ Rainbow screen disappears
+- ✅ "ESP32_Face" Bluetooth device appears
+- ✅ Connect phone and play music
+- ✅ Face animations: `Face: O_O ~~~♪ (Audio: 0.45)`
+
+## 🔧 Alternative Methods
+
+**One-Line Install:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C/main/install.sh | bash
 ```
 
-**Windows:**
-```cmd
-powershell -c "irm https://raw.githubusercontent.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C/main/install.bat | iex"
-```
-
-## Manual Setup (If You Want Control)
-
-**Windows:**
-```cmd
-git clone https://github.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C.git
-cd g1-ESP32-S3-Touch-LCD-1.85C
-run.bat
-```
-
-**Linux/Mac:**
+**Docker Method:**
 ```bash
-git clone https://github.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C.git
-cd g1-ESP32-S3-Touch-LCD-1.85C
-./run.sh
+./run.sh  # Uses Docker container
+```
+
+**Manual Flash:**
+```bash
+./flash.sh  # Direct esptool flashing
 ```
 
 ## Find Your Port
