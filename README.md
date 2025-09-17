@@ -8,6 +8,32 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 3. **TF card** - insert into board (format as FAT32)
 4. **USB Type-C cable** - for programming
 
+## Prerequisites
+
+### Check System Requirements
+```bash
+# Check if Docker is installed
+docker --version
+# If not installed:
+sudo apt update
+sudo apt install -y docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+# Log out and back in for group changes
+
+# Check if Docker Compose is installed
+docker-compose --version
+# If not installed:
+sudo apt install -y docker-compose
+# OR for newer systems:
+sudo apt install -y docker-compose-plugin
+
+# Check USB device access
+ls /dev/ttyUSB* || ls /dev/ttyACM*
+# Should show ESP32 device when connected
+```
+
 ## Quick Start (Ubuntu Docker)
 
 ### 1. Download Official Demos (Optional)
@@ -75,6 +101,13 @@ If you need official demos:
 
 ## Troubleshooting
 
+### Missing Dependencies
+```bash
+# Run dependency check first
+./check-deps.sh
+# This will install Docker, Docker Compose, and check USB access
+```
+
 ### Download Issues
 ```bash
 # Official demos have broken download links
@@ -106,6 +139,9 @@ docker exec -it esp32-dev bash -c "source /opt/esp-idf/export.sh && ./flash.sh"
 ├── Dockerfile              # Ubuntu environment
 ├── docker-compose.yml      # Container setup
 ├── platformio.ini          # ESP32-S3 config
+├── check-deps.sh           # Dependency checker
+├── quick-start.sh          # Automated setup
+├── flash.sh                # Flash script
 ├── main/
 │   └── main.cpp            # Animated face code
 └── README.md               # This file
