@@ -4,8 +4,5 @@ CONFIG_IDF_TARGET="esp32s3"
 # Main task stack size
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
 
-# LEDC driver for backlight
-CONFIG_DRIVER_LEDC_ENABLED=y
-
 # Log level
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
