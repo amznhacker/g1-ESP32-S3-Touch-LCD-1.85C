@@ -153,7 +153,8 @@ static void face_animation_task(void *param) {
     }
 }
 
-void app_main(void) {
+// Main application
+void simple_face_app_main(void) {
     ESP_LOGI(TAG, "🚀 ESP32-S3 Bluetooth Face Animation Starting...");
     
     // Initialize NVS
