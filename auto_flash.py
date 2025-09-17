@@ -7,24 +7,27 @@ import glob
 
 def find_esp32_port():
     """Auto-detect ESP32 port"""
-    ports = []
+    import platform
     
-    # Windows
-    for i in range(1, 20):
-        ports.append(f"COM{i}")
+    # Linux/Mac first (more reliable)
+    linux_ports = glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*") + glob.glob("/dev/cu.usbserial*") + glob.glob("/dev/cu.SLAB_USBtoUART*")
+    for port in linux_ports:
+        if os.path.exists(port):
+            return port
     
-    # Linux/Mac
-    ports.extend(glob.glob("/dev/ttyUSB*"))
-    ports.extend(glob.glob("/dev/ttyACM*"))
-    ports.extend(glob.glob("/dev/cu.usbserial*"))
-    ports.extend(glob.glob("/dev/cu.SLAB_USBtoUART*"))
-    
-    for port in ports:
-        try:
-            if os.path.exists(port) or port.startswith("COM"):
+    # Windows only if on Windows
+    if platform.system() == "Windows":
+        for i in range(1, 20):
+            port = f"COM{i}"
+            try:
+                # Try to open port briefly to test
+                import serial
+                ser = serial.Serial(port, timeout=0.1)
+                ser.close()
                 return port
-        except:
-            continue
+            except:
+                continue
+    
     return None
 
 def install_esptool():
