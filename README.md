@@ -11,6 +11,9 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 ## One-Command Setup
 
 ```bash
+# Make scripts executable
+chmod +x *.sh
+
 # 1. Setup everything automatically
 ./setup.sh
 
@@ -37,6 +40,16 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 
 
 ## Troubleshooting
+
+### Permission Denied
+```bash
+# Option 1: Fix permissions
+chmod +x *.sh && ./setup.sh
+
+# Option 2: Run with bash directly
+bash setup.sh
+bash flash-face.sh
+```
 
 ### Flash Issues
 ```bash
