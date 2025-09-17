@@ -8,76 +8,33 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 3. **TF card** - insert into board (format as FAT32)
 4. **USB Type-C cable** - for programming
 
-## Prerequisites
+## One-Command Setup
 
-### Check System Requirements
 ```bash
-# Check if Docker is installed
-docker --version
-# If not installed:
-sudo apt update
-sudo apt install -y docker.io
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
-# Log out and back in for group changes
+# 1. Setup everything automatically
+./setup.sh
 
-# Check if Docker Compose is installed
-docker-compose --version
-# If not installed:
-sudo apt install -y docker-compose
-# OR for newer systems:
-sudo apt install -y docker-compose-plugin
+# 2. Flash animated face to ESP32
+./flash-face.sh
 
-# Check USB device access
-ls /dev/ttyUSB* || ls /dev/ttyACM*
-# Should show ESP32 device when connected
+# 3. Connect phone to "ESP32_Face" Bluetooth and play audio
 ```
 
-## Quick Start (Ubuntu Docker)
+## Manual Steps (if needed)
 
-### 1. Download Official Demos (Optional)
+### Test Official Firmware First
 ```bash
-# Install required tools
-sudo apt update && sudo apt install -y p7zip-full wget unzip
-
-# Download from Waveshare wiki Resources section:
-# Visit: https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.85#Resources
-# Click "ESP32-S3-Touch-LCD-1.85 Demo" link to download
-
-# OR skip demos and go directly to step 2 for custom face code
+# Flash official demo to verify hardware
+./flash-demo.sh
 ```
 
-### 2. Setup Environment
-```bash
-# Build Docker environment
-docker-compose up --build
-
-# Enter container
-docker exec -it esp32-dev bash
-source /opt/esp-idf/export.sh
-```
-
-### 3. Flash Test Firmware (Optional)
-```bash
-# Skip if demo download failed - go directly to step 4
-# If demo available:
-esptool.py --chip esp32s3 --port /dev/ttyUSB0 --baud 921600 write_flash -z 0x0 ESP32-S3-Touch-LCD-1.85-Demo/Firmware/firmware.bin
-```
-
-### 4. Flash Custom Face Code
+### Build Custom Face
 ```bash
 # Build and flash animated face
-idf.py build
-idf.py -p /dev/ttyUSB0 flash monitor
+./flash-face.sh
 ```
 
-### Manual Demo Download
-If you need official demos:
-1. Visit [Waveshare Wiki](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.85#Resources)
-2. Click "ESP32-S3-Touch-LCD-1.85 Demo" under Resources section
-3. Extract downloaded file
-4. Use libraries: LVGL v8.3.10, ESP32-audioI2S-master v2.0.0
+
 
 ## Arduino IDE Setup (Alternative)
 
@@ -101,48 +58,29 @@ If you need official demos:
 
 ## Troubleshooting
 
-### Missing Dependencies
+### Flash Issues
 ```bash
-# Run dependency check first
-./check-deps.sh
-# This will install Docker, Docker Compose, and check USB access
+# If flashing fails:
+# 1. Hold BOOT button
+# 2. Press RESET button  
+# 3. Release RESET, then BOOT
+# 4. Try ./flash-face.sh again
 ```
 
-### Download Issues
+### No Bluetooth Connection
 ```bash
-# Official demos have broken download links
-# Skip to custom animated face code:
-./quick-start.sh
-# OR manually:
-docker-compose up --build -d
-docker exec -it esp32-dev bash -c "source /opt/esp-idf/export.sh && ./flash.sh"
+# Check if face is running:
+# 1. Press RESET on ESP32
+# 2. Look for "ESP32_Face" in phone Bluetooth
+# 3. Pair and play audio
 ```
 
-### Can't Connect/Flash
-1. Hold **BOOT** button
-2. Press **RESET** button
-3. Release **RESET**, then **BOOT**
-4. Try flashing again
-
-### No Display Output
-- Check TF card is FAT32 formatted
-- Verify speaker connections
-- Press RESET after flashing
-
-### Bluetooth Connection
-1. Pair phone with "ESP32_Face"
-2. Play audio from phone
-3. Face animates with sound levels
-
-## File Structure
+## Project Files
 ```
-├── Dockerfile              # Ubuntu environment
-├── docker-compose.yml      # Container setup
-├── platformio.ini          # ESP32-S3 config
-├── check-deps.sh           # Dependency checker
-├── quick-start.sh          # Automated setup
-├── flash.sh                # Flash script
-├── main/
-│   └── main.cpp            # Animated face code
+├── setup.sh                # Complete automated setup
+├── flash-demo.sh           # Flash official firmware
+├── flash-face.sh           # Flash animated face
+├── main/main.cpp           # Animated face code
+├── Dockerfile              # Container definition
 └── README.md               # This file
 ```
