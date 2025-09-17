@@ -27,7 +27,7 @@ fi
 # Build and flash
 echo "Building animated face firmware..."
 docker run --rm --privileged -v /dev:/dev -v $(pwd):/workspace --workdir /workspace esp32-face \
-    bash -c "source /opt/esp-idf/export.sh && idf.py build && idf.py -p $PORT flash"
+    bash -c "source /opt/esp-idf/export.sh && idf.py set-target esp32s3 && idf.py build && idf.py -p $PORT flash"
 
 echo ""
 echo "Flashing complete!"

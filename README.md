@@ -75,7 +75,8 @@ docker build -t esp32-face .
 # 2. Press RESET button  
 # 3. Release RESET, then BOOT
 # 4. Erase flash completely:
-docker run --rm --privileged -v /dev:/dev esp32-face esptool.py --chip esp32s3 --port /dev/ttyACM0 erase_flash
+docker run --rm --privileged -v /dev:/dev -v $(pwd):/workspace --workdir /workspace esp32-face \
+    bash -c "source /opt/esp-idf/export.sh && esptool.py --chip esp32s3 --port /dev/ttyACM0 erase_flash"
 # 5. Try ./flash-face.sh again
 ```
 
