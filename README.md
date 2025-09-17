@@ -1,6 +1,6 @@
-# ESP32-S3 Animated Face Project
+# ESP32-S3 Visual LCD Showcase
 
-**Professional Bluetooth Audio Face Animation - Replaces Rainbow Screen**
+**Interactive Visual Effects on 360x360 LCD Display - Touch-Controlled Demos**
 
 ## 🚀 Quick Start (Ubuntu)
 
@@ -15,16 +15,26 @@ python3 auto_flash.py
 ## 📋 What it does
 
 1. **setup.sh** - Installs everything (Docker, esptool, builds firmware)
-2. **auto_flash.py** - Auto-detects ESP32-S3 and flashes (replaces rainbow screen)
-3. **Creates "ESP32_Face" Bluetooth device** for phone connection
-4. **Real-time face animations** based on audio levels
+2. **auto_flash.py** - Auto-detects ESP32-S3 and flashes firmware
+3. **Displays interactive visual effects** on the 360x360 LCD screen
+4. **Touch-controlled demos** - tap screen to cycle through effects
 
 ## 🎯 Expected Result
 
-- ❌ Rainbow screen disappears
-- ✅ "ESP32_Face" Bluetooth device appears
-- ✅ Connect phone and play music
-- ✅ Face animations: `Face: O_O ~~~♪ (Audio: 0.45)`
+**Visual (LCD Screen):**
+- **Rainbow Circles** - Animated colorful circles rotating around center
+- **Plasma Effect** - Smooth flowing plasma-like patterns  
+- **Bouncing Balls** - Physics simulation with colorful bouncing balls
+- **Color Gradient** - Dynamic shifting color gradients
+- Touch screen to cycle between effects
+
+**Serial Console:**
+```
+ESP32-S3 Touch LCD Visual Showcase Starting...
+LCD initialized successfully
+Visual Demo Showcase Ready!
+Running: Rainbow Circles (Mode 0) - Touch to change
+```
 
 ## 🔧 Alternative Methods
 
@@ -68,24 +78,11 @@ minicom -D /dev/ttyUSB0 -b 115200
 # Exit: Ctrl+A then X
 ```
 
-**Expected Serial Output:**
-```
-ESP32-S3 Touch LCD Showcase Starting...
-Backlight initialized
-Touch button initialized
-Device Capabilities Showcase
-- 1.85" 360x360 LCD with backlight control
-- Touch button interaction
-- Multiple visual effects
-Running demo mode 0 - Touch to change
-Demo: Breathing light
-```
-
-## If Flash Fails (Rainbow Screen)
+## If Flash Fails
 
 **Enter Download Mode:**
 1. Hold BOOT button
-2. Press RESET button
+2. Press RESET button  
 3. Release BOOT button
 
 **Then run:**
@@ -94,31 +91,20 @@ idf.py -p YOUR_PORT erase-flash
 idf.py -p YOUR_PORT flash
 ```
 
-## Expected Result
+## Troubleshooting
 
-**Visual (LCD Screen):**
-- Backlight effects cycling through 4 modes
-- Touch screen to change between: Breathing → Pulse → Strobe → Brightness levels
-
-**Serial Console:**
-```
-ESP32-S3 Touch LCD Showcase Starting...
-Running demo mode 0 - Touch to change
-Demo: Breathing light
-```
-
-**Troubleshooting:**
 ```bash
 # Check if ESP32 is detected:
 dmesg | tail -10
 # Should show USB device when plugged in
 
+# If no visual output, check LCD connections
 # If no serial output, device might not be flashed correctly
 ```
 
 ## Why Docker?
 - **Zero dependencies** - No ESP-IDF installation needed
-- **Works everywhere** - Same environment on all machines
+- **Works everywhere** - Same environment on all machines  
 - **Easy maintenance** - Update container, not local tools
 - **Clean system** - No toolchain pollution
 
@@ -126,6 +112,5 @@ dmesg | tail -10
 
 - ESP32-S3-Touch-LCD-1.85 board
 - USB-C cable
-- Phone with Bluetooth
 
 **Docker = True plug-and-play! Just install Docker and run the script.**
