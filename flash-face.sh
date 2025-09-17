@@ -1,36 +1,32 @@
 #!/bin/bash
 
-# Flash animated face firmware
+echo "ESP32-S3 Animated Face - Build & Flash"
+echo "====================================="
 
-echo "Building and Flashing Animated Face"
-echo "==================================="
-
-# Detect ESP32 port
-PORT=""
-if [ -e /dev/ttyUSB0 ]; then
-    PORT="/dev/ttyUSB0"
-elif [ -e /dev/ttyACM0 ]; then
-    PORT="/dev/ttyACM0"
-else
-    echo "Error: ESP32 not found. Connect via USB and try again."
-    exit 1
-fi
-
-echo "Using port: $PORT"
-
-# Check if container exists, if not build it
+# Build Docker image if needed
 if ! docker images esp32-face | grep -q esp32-face; then
-    echo "Building Docker image..."
+    echo "Building ESP-IDF environment..."
     docker build -t esp32-face .
 fi
 
-# Build and flash
-echo "Building animated face firmware..."
-docker run --rm --privileged -v /dev:/dev -v $(pwd):/workspace --workdir /workspace esp32-face \
-    bash -c "source /opt/esp-idf/export.sh && idf.py set-target esp32s3 && idf.py build && idf.py -p $PORT flash"
+# Detect port
+PORT="/dev/ttyACM0"
+if [ -e /dev/ttyUSB0 ]; then
+    PORT="/dev/ttyUSB0"
+fi
 
-echo ""
-echo "Flashing complete!"
-echo "1. Press RESET button on ESP32"
-echo "2. Pair phone with 'ESP32_Face' Bluetooth"
-echo "3. Play audio - watch face animate!"
+echo "Using port: $PORT"
+echo "Building and flashing..."
+
+# Build and flash in one command
+docker run --rm --privileged \
+    -v /dev:/dev \
+    -v $(pwd):/workspace \
+    -w /workspace \
+    esp32-face \
+    bash -c "source /opt/esp-idf/export.sh && \
+             idf.py set-target esp32s3 && \
+             idf.py build && \
+             idf.py -p $PORT flash monitor"
+
+echo "Done! Connect phone to 'ESP32_Face' Bluetooth and play audio."
