@@ -3,15 +3,11 @@
 #include <freertos/task.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
-#include <driver/gpio.h>
 
-static const char* TAG = "ESP32_FACE";
-
-// Simple GPIO test - blink backlight to verify hardware
-#define PIN_NUM_BK_LIGHT 15
+static const char* TAG = "ESP32_TEST";
 
 void app_main(void) {
-    ESP_LOGI(TAG, "ESP32-S3 LCD Test Starting...");
+    ESP_LOGI(TAG, "=== ESP32-S3 Basic Test ===");
     
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -21,29 +17,14 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
     
-    // Configure backlight pin
-    gpio_config_t bk_gpio_config = {
-        .mode = GPIO_MODE_OUTPUT,
-        .pin_bit_mask = 1ULL << PIN_NUM_BK_LIGHT
-    };
-    ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+    ESP_LOGI(TAG, "✅ NVS initialized");
+    ESP_LOGI(TAG, "✅ ESP32-S3 is running!");
+    ESP_LOGI(TAG, "✅ Serial communication works!");
     
-    ESP_LOGI(TAG, "Blinking backlight to test LCD...");
-    
-    // Blink backlight to test if LCD responds
     int counter = 0;
     while(1) {
         counter++;
-        
-        // Turn backlight on/off every second
-        if (counter % 10 == 0) {
-            gpio_set_level(PIN_NUM_BK_LIGHT, 1);
-            ESP_LOGI(TAG, "Backlight ON - Frame %d", counter/10);
-        } else if (counter % 10 == 5) {
-            gpio_set_level(PIN_NUM_BK_LIGHT, 0);
-            ESP_LOGI(TAG, "Backlight OFF");
-        }
-        
-        vTaskDelay(pdMS_TO_TICKS(100));
+        ESP_LOGI(TAG, "Heartbeat %d - System is alive!", counter);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
