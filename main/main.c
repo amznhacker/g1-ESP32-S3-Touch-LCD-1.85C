@@ -147,30 +147,29 @@ static void bt_a2d_sink_data_cb(const uint8_t *data, uint32_t len) {
     }
 }
 
-// A2DP connection state callback
-static void bt_a2d_sink_state_cb(esp_a2d_connection_state_t state, void *param) {
-    switch (state) {
-        case ESP_A2D_CONNECTION_STATE_DISCONNECTED:
-            bt_connected = false;
-            audio_level = 0.0f;
-            ESP_LOGI(TAG, "Bluetooth DISCONNECTED");
+// A2DP callback
+static void bt_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
+    switch (event) {
+        case ESP_A2D_CONNECTION_STATE_EVT:
+            switch (param->conn_stat.state) {
+                case ESP_A2D_CONNECTION_STATE_DISCONNECTED:
+                    bt_connected = false;
+                    audio_level = 0.0f;
+                    ESP_LOGI(TAG, "Bluetooth DISCONNECTED");
+                    break;
+                case ESP_A2D_CONNECTION_STATE_CONNECTED:
+                    bt_connected = true;
+                    ESP_LOGI(TAG, "Bluetooth CONNECTED!");
+                    ESP_LOGI(TAG, "Play music to see screen flash!");
+                    break;
+                default:
+                    break;
+            }
+            update_face_state();
             break;
-            
-        case ESP_A2D_CONNECTION_STATE_CONNECTING:
-            ESP_LOGI(TAG, "Bluetooth CONNECTING...");
-            break;
-            
-        case ESP_A2D_CONNECTION_STATE_CONNECTED:
-            bt_connected = true;
-            ESP_LOGI(TAG, "Bluetooth CONNECTED!");
-            ESP_LOGI(TAG, "Play music to see screen flash!");
-            break;
-            
-        case ESP_A2D_CONNECTION_STATE_DISCONNECTING:
-            ESP_LOGI(TAG, "Bluetooth DISCONNECTING...");
+        default:
             break;
     }
-    update_face_state();
 }
 
 // Initialize Bluetooth A2DP sink
@@ -188,7 +187,7 @@ static void bluetooth_init(void) {
     esp_bt_gap_set_device_name("ESP32_Face");
     
     // Initialize A2DP sink
-    esp_a2d_register_callback(bt_a2d_sink_state_cb);
+    esp_a2d_register_callback(bt_a2d_cb);
     esp_a2d_sink_register_data_callback(bt_a2d_sink_data_cb);
     esp_a2d_sink_init();
     
