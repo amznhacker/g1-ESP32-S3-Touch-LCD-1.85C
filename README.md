@@ -43,13 +43,42 @@ curl -fsSL https://raw.githubusercontent.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.
 ./flash.sh  # Direct esptool flashing
 ```
 
-## Find Your Port
+## Find Your Port & Monitor Serial Output
 
-**Windows:** Device Manager → Ports (COM & LPT) → Look for "USB Serial Port (COM#)"
-
-**Linux/Mac:** 
+**Find ESP32 Port:**
 ```bash
-ls /dev/tty*USB* /dev/tty*ACM*
+# Ubuntu/Linux:
+ls /dev/ttyUSB* /dev/ttyACM*
+
+# Windows: Device Manager → Ports (COM & LPT) → Look for "USB Serial Port (COM#)"
+```
+
+**Monitor Serial Output (Ubuntu):**
+```bash
+# Method 1 - ESP-IDF monitor (recommended):
+idf.py -p /dev/ttyUSB0 monitor
+# Exit: Ctrl+]
+
+# Method 2 - Screen:
+screen /dev/ttyUSB0 115200
+# Exit: Ctrl+A then K
+
+# Method 3 - Minicom:
+minicom -D /dev/ttyUSB0 -b 115200
+# Exit: Ctrl+A then X
+```
+
+**Expected Serial Output:**
+```
+ESP32-S3 Touch LCD Showcase Starting...
+Backlight initialized
+Touch button initialized
+Device Capabilities Showcase
+- 1.85" 360x360 LCD with backlight control
+- Touch button interaction
+- Multiple visual effects
+Running demo mode 0 - Touch to change
+Demo: Breathing light
 ```
 
 ## If Flash Fails (Rainbow Screen)
@@ -67,11 +96,25 @@ idf.py -p YOUR_PORT flash
 
 ## Expected Result
 
-After successful flash:
-1. Device creates "ESP32_Face" Bluetooth
-2. Connect phone to "ESP32_Face"
-3. Play music
-4. Console shows: `Face: O_O ~~~♪ (Audio: 0.45)`
+**Visual (LCD Screen):**
+- Backlight effects cycling through 4 modes
+- Touch screen to change between: Breathing → Pulse → Strobe → Brightness levels
+
+**Serial Console:**
+```
+ESP32-S3 Touch LCD Showcase Starting...
+Running demo mode 0 - Touch to change
+Demo: Breathing light
+```
+
+**Troubleshooting:**
+```bash
+# Check if ESP32 is detected:
+dmesg | tail -10
+# Should show USB device when plugged in
+
+# If no serial output, device might not be flashed correctly
+```
 
 ## Why Docker?
 - **Zero dependencies** - No ESP-IDF installation needed
