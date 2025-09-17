@@ -1,0 +1,28 @@
+# Build artifacts
+build/
+*.bin
+*.elf
+*.map
+
+# Flash download tool (Windows only)
+flash_download_tool_3.9.7_1/
+flash_download_tool_3.9.7_1.zip
+
+# Demo zip file (already extracted)
+ESP32-S3-Touch-LCD-1.85-Demo.zip
+
+# Build logs
+build.log
+*.log
+
+# IDE files
+.vscode/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
