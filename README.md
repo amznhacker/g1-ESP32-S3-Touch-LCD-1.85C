@@ -17,7 +17,10 @@ chmod +x *.sh
 # 1. Setup everything automatically
 ./setup.sh
 
-# 2. Flash animated face to ESP32
+# 2. If setup fails, build manually:
+docker build -t esp32-face .
+
+# 3. Flash animated face to ESP32
 ./flash-face.sh
 
 # 3. Connect phone to "ESP32_Face" Bluetooth and play audio
@@ -49,6 +52,20 @@ chmod +x *.sh && ./setup.sh
 # Option 2: Run with bash directly
 bash setup.sh
 bash flash-face.sh
+```
+
+### Docker Compose Issues
+```bash
+# If docker-compose fails, use plain Docker:
+docker build -t esp32-face .
+# Then skip to flash-face.sh
+```
+
+### Missing Firmware
+```bash
+# Skip demo, go directly to custom face:
+./flash-face.sh
+# Demo firmware is optional - custom face works without it
 ```
 
 ### Flash Issues

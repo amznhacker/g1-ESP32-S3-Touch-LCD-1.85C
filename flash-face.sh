@@ -18,6 +18,12 @@ fi
 
 echo "Using port: $PORT"
 
+# Check if container exists, if not build it
+if ! docker images esp32-face | grep -q esp32-face; then
+    echo "Building Docker image..."
+    docker build -t esp32-face .
+fi
+
 # Build and flash
 echo "Building animated face firmware..."
 docker run --rm --privileged -v /dev:/dev -v $(pwd):/workspace --workdir /workspace esp32-face \
