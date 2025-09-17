@@ -8,8 +8,17 @@
 #include <esp_a2dp_api.h>
 #include <esp_gap_bt_api.h>
 #include <math.h>
+#include "driver/ledc.h"
 
 static const char *TAG = "ESP32_FACE";
+
+// LCD Backlight pins and settings
+#define BACKLIGHT_PIN 5
+#define LEDC_TIMER LEDC_TIMER_0
+#define LEDC_MODE LEDC_LOW_SPEED_MODE
+#define LEDC_CHANNEL LEDC_CHANNEL_0
+#define LEDC_DUTY_RES LEDC_TIMER_13_BIT
+#define LEDC_FREQUENCY 5000
 
 // Simple face state
 typedef enum {
@@ -22,6 +31,7 @@ typedef enum {
 static simple_face_state_t current_face_state = FACE_SLEEPING;
 static bool bt_connected = false;
 static float audio_level = 0.0f;
+static bool screen_initialized = false;
 
 // Simple audio analysis
 static float analyze_audio_simple(const uint8_t *data, uint32_t len) {
@@ -40,18 +50,73 @@ static float analyze_audio_simple(const uint8_t *data, uint32_t len) {
     return sum / fminf(sample_count, 256.0f);
 }
 
+// Initialize LCD backlight
+static void init_backlight(void) {
+    ledc_timer_config_t ledc_timer = {
+        .duty_resolution = LEDC_DUTY_RES,
+        .freq_hz = LEDC_FREQUENCY,
+        .speed_mode = LEDC_MODE,
+        .timer_num = LEDC_TIMER,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+    ledc_channel_config_t ledc_channel = {
+        .channel = LEDC_CHANNEL,
+        .duty = 0,
+        .gpio_num = BACKLIGHT_PIN,
+        .speed_mode = LEDC_MODE,
+        .timer_sel = LEDC_TIMER,
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+    
+    screen_initialized = true;
+    ESP_LOGI(TAG, "LCD Backlight initialized");
+}
+
+// Set backlight brightness (0-100)
+static void set_backlight(uint8_t brightness) {
+    if (!screen_initialized) return;
+    
+    uint32_t duty = (8191 * brightness) / 100; // Convert to 13-bit duty cycle
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, duty));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+}
+
+// Flash screen based on audio level
+static void flash_screen(float level) {
+    if (!screen_initialized) return;
+    
+    uint8_t brightness;
+    if (level > 0.3f) {
+        brightness = 100; // Full brightness for high audio
+    } else if (level > 0.1f) {
+        brightness = 70;  // Medium brightness
+    } else if (level > 0.05f) {
+        brightness = 40;  // Low brightness
+    } else {
+        brightness = 10;  // Dim when no audio
+    }
+    
+    set_backlight(brightness);
+}
+
 // Update face state based on audio
 static void update_face_state(void) {
     simple_face_state_t new_state;
     
     if (!bt_connected) {
         new_state = FACE_SLEEPING;
+        set_backlight(5); // Very dim when sleeping
     } else if (audio_level > 0.3f) {
         new_state = FACE_EXCITED;
+        flash_screen(audio_level);
     } else if (audio_level > 0.05f) {
         new_state = FACE_SPEAKING;
+        flash_screen(audio_level);
     } else {
         new_state = FACE_AWAKE;
+        set_backlight(30); // Medium brightness when awake
     }
     
     if (new_state != current_face_state) {
@@ -59,16 +124,16 @@ static void update_face_state(void) {
         
         switch (current_face_state) {
             case FACE_SLEEPING:
-                ESP_LOGI(TAG, "Face: 😴 Sleeping (No Bluetooth)");
+                ESP_LOGI(TAG, "Sleeping (No Bluetooth)");
                 break;
             case FACE_AWAKE:
-                ESP_LOGI(TAG, "Face: 😊 Awake (Connected)");
+                ESP_LOGI(TAG, "Awake (Connected)");
                 break;
             case FACE_SPEAKING:
-                ESP_LOGI(TAG, "Face: 😮 Speaking ♪ (Audio: %.2f)", audio_level);
+                ESP_LOGI(TAG, "Speaking (Audio: %.2f)", audio_level);
                 break;
             case FACE_EXCITED:
-                ESP_LOGI(TAG, "Face: 🤩 EXCITED! ♪♪♪ (Audio: %.2f)", audio_level);
+                ESP_LOGI(TAG, "EXCITED! (Audio: %.2f)", audio_level);
                 break;
         }
     }
@@ -88,21 +153,21 @@ static void bt_a2d_sink_state_cb(esp_a2d_connection_state_t state, void *param) 
         case ESP_A2D_CONNECTION_STATE_DISCONNECTED:
             bt_connected = false;
             audio_level = 0.0f;
-            ESP_LOGI(TAG, "🔌 Bluetooth DISCONNECTED");
+            ESP_LOGI(TAG, "Bluetooth DISCONNECTED");
             break;
             
         case ESP_A2D_CONNECTION_STATE_CONNECTING:
-            ESP_LOGI(TAG, "🔄 Bluetooth CONNECTING...");
+            ESP_LOGI(TAG, "Bluetooth CONNECTING...");
             break;
             
         case ESP_A2D_CONNECTION_STATE_CONNECTED:
             bt_connected = true;
-            ESP_LOGI(TAG, "✅ Bluetooth CONNECTED!");
-            ESP_LOGI(TAG, "🎵 Play music to see face animations!");
+            ESP_LOGI(TAG, "Bluetooth CONNECTED!");
+            ESP_LOGI(TAG, "Play music to see screen flash!");
             break;
             
         case ESP_A2D_CONNECTION_STATE_DISCONNECTING:
-            ESP_LOGI(TAG, "🔄 Bluetooth DISCONNECTING...");
+            ESP_LOGI(TAG, "Bluetooth DISCONNECTING...");
             break;
     }
     update_face_state();
@@ -130,31 +195,25 @@ static void bluetooth_init(void) {
     // Set discoverable and connectable
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
     
-    ESP_LOGI(TAG, "🎯 ESP32_Face Bluetooth initialized");
-    ESP_LOGI(TAG, "📱 Device name: ESP32_Face");
-    ESP_LOGI(TAG, "🔍 Now discoverable - connect your phone!");
+    ESP_LOGI(TAG, "ESP32_Face Bluetooth initialized");
+    ESP_LOGI(TAG, "Device name: ESP32_Face");
+    ESP_LOGI(TAG, "Now discoverable - connect your phone!");
 }
 
 // Face animation task
 static void face_animation_task(void *param) {
     while (1) {
-        // Simulate face blinking/animation
-        if (current_face_state != FACE_SLEEPING) {
-            ESP_LOGD(TAG, "👁️ Blink animation");
-        }
-        
         // Decay audio level gradually
         if (audio_level > 0.01f) {
-            audio_level *= 0.95f; // Gradual decay
+            audio_level *= 0.95f;
             update_face_state();
         }
-        
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, "🚀 ESP32-S3 Bluetooth Face Animation Starting...");
+    ESP_LOGI(TAG, "ESP32-S3 Bluetooth Face Animation Starting...");
     
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -164,17 +223,20 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
     
+    // Initialize LCD backlight for screen flashing
+    init_backlight();
+    
     // Initialize Bluetooth
     bluetooth_init();
     
     // Start face animation task
     xTaskCreate(face_animation_task, "face_anim", 2048, NULL, 5, NULL);
     
-    ESP_LOGI(TAG, "✨ ESP32_Face is ready!");
-    ESP_LOGI(TAG, "📋 Instructions:");
-    ESP_LOGI(TAG, "   1. Connect phone to 'ESP32_Face' via Bluetooth");
-    ESP_LOGI(TAG, "   2. Play music to see face react to audio");
-    ESP_LOGI(TAG, "   3. Watch console for face emotions!");
+    ESP_LOGI(TAG, "ESP32_Face is ready!");
+    ESP_LOGI(TAG, "Instructions:");
+    ESP_LOGI(TAG, "1. Connect phone to 'ESP32_Face' via Bluetooth");
+    ESP_LOGI(TAG, "2. Play music to see screen flash with audio");
+    ESP_LOGI(TAG, "3. Watch console for status!");
     
     // Main loop
     while (1) {
@@ -184,7 +246,7 @@ void app_main(void) {
         static int status_counter = 0;
         if (++status_counter >= 10) { // Every 10 seconds
             status_counter = 0;
-            ESP_LOGI(TAG, "📊 Status: %s, Audio: %.3f", 
+            ESP_LOGI(TAG, "Status: %s, Audio: %.3f", 
                      bt_connected ? "Connected" : "Waiting for connection", 
                      audio_level);
         }
