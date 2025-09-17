@@ -36,26 +36,6 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 
 
 
-## Arduino IDE Setup (Alternative)
-
-### 1. Install Arduino IDE
-- Download from arduino.cc
-- Install ESP32 board package v3.0.2+
-
-### 2. Install Libraries
-- **LVGL v8.3.10** (offline install)
-- **ESP32-audioI2S-master v2.0.0** (offline install)
-
-### 3. Board Settings
-- Board: ESP32S3 Dev Module
-- Partition: 16M Flash (3MB APP/9.9MB FATFS)
-- USB CDC: Enabled
-
-### 4. Upload Code
-- Open main/main.cpp in Arduino IDE
-- Select correct COM port
-- Upload (if fails, hold BOOT + press RESET)
-
 ## Troubleshooting
 
 ### Flash Issues
@@ -78,9 +58,13 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 ## Project Files
 ```
 ├── setup.sh                # Complete automated setup
-├── flash-demo.sh           # Flash official firmware
+├── flash-demo.sh           # Flash official firmware  
 ├── flash-face.sh           # Flash animated face
-├── main/main.cpp           # Animated face code
+├── main/
+│   ├── main.cpp            # Animated face code
+│   └── CMakeLists.txt      # Build configuration
+├── CMakeLists.txt          # Project configuration
+├── docker-compose.yml      # Container orchestration
 ├── Dockerfile              # Container definition
 └── README.md               # This file
 ```
