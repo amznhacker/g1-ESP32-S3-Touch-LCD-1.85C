@@ -10,18 +10,16 @@ Complete setup for ESP32-S3-Touch-LCD-1.85 with animated face responding to phon
 
 ## Quick Start (Ubuntu Docker)
 
-### 1. Download Official Demos
+### 1. Download Official Demos (Optional)
 ```bash
 # Install required tools
 sudo apt update && sudo apt install -y p7zip-full wget unzip
 
-# Try alternative download methods
-wget https://www.waveshare.com/w/upload/8/8a/ESP32-S3-Touch-LCD-1.85-Demo.7z
-# OR if above fails:
-curl -L -o ESP32-S3-Touch-LCD-1.85-Demo.7z "https://www.waveshare.com/w/upload/8/8a/ESP32-S3-Touch-LCD-1.85-Demo.7z"
+# Download from Waveshare wiki Resources section:
+# Visit: https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.85#Resources
+# Click "ESP32-S3-Touch-LCD-1.85 Demo" link to download
 
-# Extract (try both formats)
-unzip ESP32-S3-Touch-LCD-1.85-Demo.zip || 7z x ESP32-S3-Touch-LCD-1.85-Demo.7z
+# OR skip demos and go directly to step 2 for custom face code
 ```
 
 ### 2. Setup Environment
@@ -48,6 +46,13 @@ idf.py build
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
+### Manual Demo Download
+If you need official demos:
+1. Visit [Waveshare Wiki](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-1.85#Resources)
+2. Click "ESP32-S3-Touch-LCD-1.85 Demo" under Resources section
+3. Extract downloaded file
+4. Use libraries: LVGL v8.3.10, ESP32-audioI2S-master v2.0.0
+
 ## Arduino IDE Setup (Alternative)
 
 ### 1. Install Arduino IDE
@@ -72,9 +77,12 @@ idf.py -p /dev/ttyUSB0 flash monitor
 
 ### Download Issues
 ```bash
-# If official demos fail to download, skip to custom code:
-./flash.sh
-# This builds and flashes the animated face directly
+# Official demos have broken download links
+# Skip to custom animated face code:
+./quick-start.sh
+# OR manually:
+docker-compose up --build -d
+docker exec -it esp32-dev bash -c "source /opt/esp-idf/export.sh && ./flash.sh"
 ```
 
 ### Can't Connect/Flash
