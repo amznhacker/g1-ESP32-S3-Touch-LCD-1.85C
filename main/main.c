@@ -7,6 +7,7 @@
 #include <nvs_flash.h>
 #include <esp_bt.h>
 #include <esp_bt_main.h>
+#include <esp_bt_device.h>
 #include <esp_a2dp_api.h>
 #include <esp_avrc_api.h>
 
@@ -34,12 +35,18 @@ static void bt_a2d_sink_data_cb(const uint8_t *data, uint32_t len) {
     }
 }
 
-// Bluetooth connection state callback
-static void bt_a2d_sink_state_cb(esp_a2d_connection_state_t state, esp_bd_addr_t remote_bda) {
-    if (state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
-        ESP_LOGI(TAG, "Bluetooth A2DP Connected");
-    } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
-        ESP_LOGI(TAG, "Bluetooth A2DP Disconnected");
+// Bluetooth A2DP callback
+static void bt_a2d_cb(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
+    switch (event) {
+        case ESP_A2D_CONNECTION_STATE_EVT:
+            if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
+                ESP_LOGI(TAG, "Bluetooth A2DP Connected");
+            } else if (param->conn_stat.state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
+                ESP_LOGI(TAG, "Bluetooth A2DP Disconnected");
+            }
+            break;
+        default:
+            break;
     }
 }
 
@@ -54,12 +61,11 @@ static void init_bluetooth(void) {
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
     
-    esp_a2d_register_callback(bt_a2d_sink_state_cb);
+    esp_a2d_register_callback(bt_a2d_cb);
     esp_a2d_sink_register_data_callback(bt_a2d_sink_data_cb);
     ESP_ERROR_CHECK(esp_a2d_sink_init());
     
     ESP_ERROR_CHECK(esp_bt_dev_set_device_name("ESP32_Face"));
-    ESP_ERROR_CHECK(esp_a2d_sink_connect_last_device());
     
     ESP_LOGI(TAG, "Bluetooth initialized. Device name: ESP32_Face");
 }
