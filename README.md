@@ -1,116 +1,65 @@
-# ESP32-S3 Visual LCD Showcase
+# ESP32-S3 Audio Reactive Face
 
-**Interactive Visual Effects on 360x360 LCD Display - Touch-Controlled Demos**
+An animated face that reacts to audio with multiple expressions, displayed on a 1.85" LCD screen.
 
-## 🚀 Quick Start (Ubuntu)
+## Features
 
-```bash
-git clone https://github.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C.git
-cd g1-ESP32-S3-Touch-LCD-1.85C
-chmod +x *.sh
-./setup.sh
-python3 auto_flash.py
+- **Audio Reactive Mouth** - Mouth opens/closes with music (simulated, ready for Bluetooth A2DP)
+- **Multiple Expressions** - 4 different facial expressions (neutral, happy, surprised, sleepy)
+- **Audio Visualization** - Real-time audio level bars with color coding
+- **Bluetooth Ready** - Foundation for connecting to phone audio
+- **SD Card Support** - Ready for storing custom face images
+- **30 FPS Animation** - Smooth real-time graphics
+
+## Hardware
+
+- **ESP32-S3** microcontroller
+- **Waveshare ESP32-S3 Touch LCD 1.85"** (240x280 ST7789)
+- **SD Card** (optional)
+
+## Quick Start
+
+1. **Flash the firmware:**
+   ```bash
+   ./FLASH_NOW.sh
+   ```
+
+2. **Power on** - Face starts animating immediately
+
+3. **Connect Bluetooth** - Look for "ESP32-AudioFace" in phone settings
+
+## What You'll See
+
+- Animated face with changing expressions
+- Audio level bars (green/yellow/red)
+- Bluetooth status indicator (blue=connected, red=waiting)
+- Smooth mouth animation reacting to simulated audio
+
+## Current Status
+
+✅ **Working:** Face animation, expressions, LCD display, Bluetooth foundation
+🔄 **Next:** Real Bluetooth A2DP audio streaming integration
+
+## Build Requirements
+
+- Docker (for ESP-IDF environment)
+- USB connection to ESP32-S3
+
+## File Structure
+
+```
+├── main/main.c          # Audio reactive face code
+├── build/               # Compiled firmware
+├── FLASH_NOW.sh         # Flash script
+└── README.md           # This file
 ```
 
-## 📋 What it does
+## Technical Details
 
-1. **setup.sh** - Installs everything (Docker, esptool, builds firmware)
-2. **auto_flash.py** - Auto-detects ESP32-S3 and flashes firmware
-3. **Displays interactive visual effects** on the 360x360 LCD screen
-4. **Touch-controlled demos** - tap screen to cycle through effects
+- **Display:** ST7789 240x280 LCD via SPI
+- **Animation:** 30 FPS with expression cycling
+- **Audio:** Simulated reactive mouth (ready for real audio)
+- **Memory:** 870KB firmware, 76% flash free
+- **Bluetooth:** Classic BT stack initialized
 
-## 🎯 Expected Result
-
-**Visual (LCD Screen):**
-- **Rainbow Circles** - Animated colorful circles rotating around center
-- **Plasma Effect** - Smooth flowing plasma-like patterns  
-- **Bouncing Balls** - Physics simulation with colorful bouncing balls
-- **Color Gradient** - Dynamic shifting color gradients
-- Touch screen to cycle between effects
-
-**Serial Console:**
-```
-ESP32-S3 Touch LCD Visual Showcase Starting...
-LCD initialized successfully
-Visual Demo Showcase Ready!
-Running: Rainbow Circles (Mode 0) - Touch to change
-```
-
-## 🔧 Alternative Methods
-
-**One-Line Install:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C/main/install.sh | bash
-```
-
-**Docker Method:**
-```bash
-./run.sh  # Uses Docker container
-```
-
-**Manual Flash:**
-```bash
-./flash.sh  # Direct esptool flashing
-```
-
-## Find Your Port & Monitor Serial Output
-
-**Find ESP32 Port:**
-```bash
-# Ubuntu/Linux:
-ls /dev/ttyUSB* /dev/ttyACM*
-
-# Windows: Device Manager → Ports (COM & LPT) → Look for "USB Serial Port (COM#)"
-```
-
-**Monitor Serial Output (Ubuntu):**
-```bash
-# Method 1 - ESP-IDF monitor (recommended):
-idf.py -p /dev/ttyUSB0 monitor
-# Exit: Ctrl+]
-
-# Method 2 - Screen:
-screen /dev/ttyUSB0 115200
-# Exit: Ctrl+A then K
-
-# Method 3 - Minicom:
-minicom -D /dev/ttyUSB0 -b 115200
-# Exit: Ctrl+A then X
-```
-
-## If Flash Fails
-
-**Enter Download Mode:**
-1. Hold BOOT button
-2. Press RESET button  
-3. Release BOOT button
-
-**Then run:**
-```bash
-idf.py -p YOUR_PORT erase-flash
-idf.py -p YOUR_PORT flash
-```
-
-## Troubleshooting
-
-```bash
-# Check if ESP32 is detected:
-dmesg | tail -10
-# Should show USB device when plugged in
-
-# If no visual output, check LCD connections
-# If no serial output, device might not be flashed correctly
-```
-
-## Why Docker?
-- **Zero dependencies** - No ESP-IDF installation needed
-- **Works everywhere** - Same environment on all machines  
-- **Easy maintenance** - Update container, not local tools
-- **Clean system** - No toolchain pollution
-
-## Hardware Requirements
-
-- ESP32-S3-Touch-LCD-1.85 board
-- USB-C cable
-
-**Docker = True plug-and-play! Just install Docker and run the script.**
+Ready to flash and enjoy your audio reactive face! 🎵😊
