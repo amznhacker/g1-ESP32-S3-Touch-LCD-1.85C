@@ -13,34 +13,27 @@ Animated face display with audio reactive features, Bluetooth connectivity, and 
 
 ## 🚀 One-Command Setup
 
-**Copy and paste this into your terminal:**
+**Ubuntu (SSH keys configured):**
 
 ```bash
-# Clone and build (Linux/WSL)
+git clone git@github.com:ramigony/g1-ESP32-S3-Touch-LCD-1.85C.git
+cd g1-ESP32-S3-Touch-LCD-1.85C
+python3 setup.py
+```
+
+**WSL/Windows (HTTPS):**
+```bash
 git clone https://github.com/ramigony/g1-ESP32-S3-Touch-LCD-1.85C.git
 cd g1-ESP32-S3-Touch-LCD-1.85C
-chmod +x *.py *.sh
-docker run --rm -v $(pwd):/project -w /project espressif/idf:v5.3.1 bash -c "idf.py set-target esp32s3 && idf.py build"
+python3 setup.py
 ```
 
-**Windows PowerShell:**
-```powershell
-git clone https://github.com/ramigony/g1-ESP32-S3-Touch-LCD-1.85C.git
-cd g1-ESP32-S3-Touch-LCD-1.85C
-docker run --rm -v ${PWD}:/project -w /project espressif/idf:v5.3.1 bash -c "idf.py set-target esp32s3 && idf.py build"
-```
-
-## 📱 Flash to Device
-
-**Auto-flash (Linux/WSL):**
-```bash
-python3 auto_flash.py
-```
-
-**Manual flash:**
-```bash
-python -m esptool --chip esp32s3 -p /dev/ttyACM0 -b 460800 write_flash 0x0 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin 0x10000 build/esp32_face.bin
-```
+**That's it!** The setup script will:
+- ✅ Check Docker and prerequisites
+- 🏗️ Build ESP32-S3 firmware (5+ minutes)
+- 🔍 Auto-detect your ESP32-S3 device
+- ⚡ Flash firmware automatically
+- 🛠️ Show fixes for any issues
 
 ## 🔧 Hardware Setup
 
@@ -64,9 +57,18 @@ python -m esptool --chip esp32s3 -p /dev/ttyACM0 -b 460800 write_flash 0x0 build
 
 ## 🎯 Quick Test
 
-1. **Clone & Build** (copy-paste command above)
-2. **Flash** with `python3 auto_flash.py`
-3. **Connect Bluetooth** - Look for "ESP32-AudioFace"
-4. **Watch** - Face animates with audio reactive mouth movement
+1. **Clone & Run** `python3 setup.py`
+2. **Connect Bluetooth** - Look for "ESP32-AudioFace"
+3. **Watch** - Face animates with audio reactive mouth movement
 
-**That's it!** No manual configuration needed.
+## 🛠️ Manual Commands (if needed)
+
+**Build only:**
+```bash
+docker run --rm -v $(pwd):/project -w /project espressif/idf:v5.3.1 bash -c "idf.py set-target esp32s3 && idf.py build"
+```
+
+**Flash only:**
+```bash
+python3 auto_flash.py
+```
