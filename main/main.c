@@ -4,217 +4,336 @@
 #include <math.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/queue.h>
 #include <esp_log.h>
 #include <nvs_flash.h>
-#include <esp_timer.h>
-#include <esp_random.h>
+#include <esp_bt.h>
+#include <esp_bt_main.h>
+#include <esp_bt_device.h>
+#include <esp_gap_bt_api.h>
 #include <driver/gpio.h>
+#include <driver/spi_master.h>
+#include <esp_lcd_panel_io.h>
+#include <esp_lcd_panel_vendor.h>
+#include <esp_lcd_panel_ops.h>
+#include <esp_vfs_fat.h>
+#include <sdmmc_cmd.h>
 
-static const char* TAG = "ESP32S3_DEMO";
+static const char* TAG = "AUDIO_FACE";
 
-// Animation state
+// LCD pins for Waveshare ESP32-S3 Touch LCD 1.85"
+#define LCD_HOST    SPI2_HOST
+#define LCD_PIXEL_CLOCK_HZ     (20 * 1000 * 1000)
+#define PIN_NUM_SCLK           12
+#define PIN_NUM_MOSI           11
+#define PIN_NUM_LCD_DC         8
+#define PIN_NUM_LCD_RST        14
+#define PIN_NUM_LCD_CS         10
+#define PIN_NUM_BK_LIGHT       9
+#define LCD_H_RES              240
+#define LCD_V_RES              280
+
+// SD Card pins (if available)
+#define PIN_NUM_SD_MISO        13
+#define PIN_NUM_SD_MOSI        11
+#define PIN_NUM_SD_CLK         12
+#define PIN_NUM_SD_CS          10
+
+// Colors
+#define COLOR_BLACK   0x0000
+#define COLOR_WHITE   0xFFFF
+#define COLOR_RED     0xF800
+#define COLOR_BLUE    0x001F
+#define COLOR_GREEN   0x07E0
+#define COLOR_YELLOW  0xFFE0
+#define COLOR_SKIN    0xFDB8
+#define COLOR_MOUTH   0xF800
+
+static esp_lcd_panel_handle_t panel_handle = NULL;
+
+// Audio reactive face state
 typedef struct {
-    float eye_blink;
-    float mouth_smile;
-    float head_tilt;
-    float energy_level;
+    float mouth_open;     // 0.0 = closed, 1.0 = wide open
+    float audio_level;    // Current audio level (simulated)
+    bool bt_connected;    // Bluetooth connection status
     uint32_t frame_count;
-    uint64_t last_update;
-} face_state_t;
+    int expression;       // 0=neutral, 1=happy, 2=surprised, 3=sleepy
+} audio_face_t;
 
-static face_state_t face = {0};
-static QueueHandle_t sensor_queue;
+static audio_face_t face = {0};
 
-// Sensor data structure
-typedef struct {
-    float temperature;
-    float light_level;
-    bool motion_detected;
-} sensor_data_t;
+// Initialize LCD
+static void lcd_init(void)
+{
+    spi_bus_config_t buscfg = {
+        .sclk_io_num = PIN_NUM_SCLK,
+        .mosi_io_num = PIN_NUM_MOSI,
+        .miso_io_num = -1,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = LCD_H_RES * 80 * sizeof(uint16_t),
+    };
+    ESP_ERROR_CHECK(spi_bus_initialize(LCD_HOST, &buscfg, SPI_DMA_CH_AUTO));
 
-// Face expressions
-typedef enum {
-    EXPR_NEUTRAL,
-    EXPR_HAPPY,
-    EXPR_SURPRISED,
-    EXPR_SLEEPY,
-    EXPR_EXCITED
-} expression_t;
+    esp_lcd_panel_io_handle_t io_handle = NULL;
+    esp_lcd_panel_io_spi_config_t io_config = {
+        .dc_gpio_num = PIN_NUM_LCD_DC,
+        .cs_gpio_num = PIN_NUM_LCD_CS,
+        .pclk_hz = LCD_PIXEL_CLOCK_HZ,
+        .lcd_cmd_bits = 8,
+        .lcd_param_bits = 8,
+        .spi_mode = 0,
+        .trans_queue_depth = 10,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)LCD_HOST, &io_config, &io_handle));
 
-static expression_t current_expression = EXPR_NEUTRAL;
-static const char* expression_names[] = {"Neutral", "Happy", "Surprised", "Sleepy", "Excited"};
+    esp_lcd_panel_dev_config_t panel_config = {
+        .reset_gpio_num = PIN_NUM_LCD_RST,
+        .rgb_endian = LCD_RGB_ENDIAN_BGR,
+        .bits_per_pixel = 16,
+    };
+    ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
 
-// Advanced animation with realistic timing
-static void update_face_animation(void) {
-    uint64_t now = esp_timer_get_time();
-    float dt = (now - face.last_update) / 1000000.0f; // Convert to seconds
-    face.last_update = now;
-    face.frame_count++;
-    
-    // Realistic blinking pattern
-    static float blink_timer = 0;
-    blink_timer += dt;
-    if (blink_timer > 3.0f + (esp_random() % 2000) / 1000.0f) {
-        face.eye_blink = 1.0f;
-        blink_timer = 0;
-    } else if (face.eye_blink > 0) {
-        face.eye_blink -= dt * 8.0f; // Fast blink
-        if (face.eye_blink < 0) face.eye_blink = 0;
-    }
-    
-    // Expression-based mouth animation
-    switch (current_expression) {
-        case EXPR_HAPPY:
-            face.mouth_smile = 0.8f + 0.2f * sinf(face.frame_count * 0.1f);
-            break;
-        case EXPR_SURPRISED:
-            face.mouth_smile = -0.5f;
-            break;
-        case EXPR_SLEEPY:
-            face.mouth_smile = 0.1f * sinf(face.frame_count * 0.05f);
-            face.eye_blink = 0.7f;
-            break;
-        case EXPR_EXCITED:
-            face.mouth_smile = 0.9f + 0.1f * sinf(face.frame_count * 0.3f);
-            face.head_tilt = 0.3f * sinf(face.frame_count * 0.2f);
-            break;
-        default:
-            face.mouth_smile = 0.1f + 0.1f * sinf(face.frame_count * 0.08f);
-            break;
-    }
-    
-    // Energy-based head movement
-    face.head_tilt += (face.energy_level - 0.5f) * dt * 0.5f;
-    face.head_tilt *= 0.95f; // Damping
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+
+    // Backlight on
+    gpio_config_t bk_gpio_config = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = 1ULL << PIN_NUM_BK_LIGHT
+    };
+    ESP_ERROR_CHECK(gpio_config(&bk_gpio_config));
+    gpio_set_level(PIN_NUM_BK_LIGHT, 1);
 }
 
-// Simulate sensor readings (would be real sensors on actual hardware)
-static void sensor_task(void *pvParameters) {
-    sensor_data_t data;
-    
-    while (1) {
-        // Simulate temperature sensor (25-35°C range)
-        data.temperature = 25.0f + (esp_random() % 1000) / 100.0f;
-        
-        // Simulate light sensor (0-100% range)
-        data.light_level = (esp_random() % 100) / 100.0f;
-        
-        // Simulate motion detection
-        data.motion_detected = (esp_random() % 100) < 10; // 10% chance
-        
-        xQueueSend(sensor_queue, &data, portMAX_DELAY);
-        vTaskDelay(pdMS_TO_TICKS(500));
+// Draw filled rectangle
+static void draw_rect(int x, int y, int w, int h, uint16_t color)
+{
+    uint16_t *buffer = malloc(w * h * sizeof(uint16_t));
+    for (int i = 0; i < w * h; i++) {
+        buffer[i] = color;
     }
+    esp_lcd_panel_draw_bitmap(panel_handle, x, y, x + w, y + h, buffer);
+    free(buffer);
 }
 
-// AI-like behavior based on sensor input
-static void behavior_task(void *pvParameters) {
-    sensor_data_t sensor_data;
-    static uint32_t behavior_timer = 0;
-    
-    while (1) {
-        if (xQueueReceive(sensor_queue, &sensor_data, pdMS_TO_TICKS(100))) {
-            // React to environment
-            if (sensor_data.motion_detected) {
-                current_expression = EXPR_SURPRISED;
-                face.energy_level = 0.9f;
-                ESP_LOGI(TAG, "[MOTION] Motion detected! Expression: %s", expression_names[current_expression]);
-            } else if (sensor_data.light_level < 0.2f) {
-                current_expression = EXPR_SLEEPY;
-                face.energy_level = 0.2f;
-                ESP_LOGI(TAG, "[LIGHT] Low light detected! Expression: %s", expression_names[current_expression]);
-            } else if (sensor_data.temperature > 30.0f) {
-                current_expression = EXPR_EXCITED;
-                face.energy_level = 0.8f;
-                ESP_LOGI(TAG, "[TEMP] High temperature! Expression: %s", expression_names[current_expression]);
-            }
-            
-            ESP_LOGI(TAG, "[SENSORS] Temp=%.1f°C, Light=%.0f%%, Motion=%s", 
-                     sensor_data.temperature, sensor_data.light_level * 100,
-                     sensor_data.motion_detected ? "YES" : "NO");
-        }
-        
-        // Autonomous behavior changes
-        behavior_timer++;
-        if (behavior_timer % 100 == 0) {
-            if (current_expression != EXPR_SURPRISED) {
-                expression_t new_expr = (esp_random() % 4) + 1; // Random expression
-                if (new_expr != current_expression) {
-                    current_expression = new_expr;
-                    face.energy_level = 0.3f + (esp_random() % 50) / 100.0f;
-                    ESP_LOGI(TAG, "[AUTO] Autonomous change: %s", expression_names[current_expression]);
-                }
+// Draw circle
+static void draw_circle(int cx, int cy, int r, uint16_t color)
+{
+    for (int y = -r; y <= r; y++) {
+        for (int x = -r; x <= r; x++) {
+            if (x*x + y*y <= r*r) {
+                uint16_t pixel = color;
+                esp_lcd_panel_draw_bitmap(panel_handle, cx + x, cy + y, cx + x + 1, cy + y + 1, &pixel);
             }
         }
-        
-        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
-// Performance monitoring
-static void performance_task(void *pvParameters) {
-    uint32_t last_frame_count = 0;
+// Draw audio reactive face
+static void draw_audio_face(void)
+{
+    // Clear screen with gradient background
+    for (int y = 0; y < LCD_V_RES; y++) {
+        uint16_t bg_color = (y * 31 / LCD_V_RES) << 11; // Blue gradient
+        draw_rect(0, y, LCD_H_RES, 1, bg_color);
+    }
     
-    while (1) {
-        uint32_t fps = face.frame_count - last_frame_count;
-        last_frame_count = face.frame_count;
-        
-        size_t free_heap = esp_get_free_heap_size();
-        size_t min_free_heap = esp_get_minimum_free_heap_size();
-        
-        ESP_LOGI(TAG, "[PERF] Performance: FPS=%lu, Heap=%zu/%zu bytes", 
-                 fps, free_heap, min_free_heap);
-        
-        // Display face state with visual representation
-        char blink_bar[11], smile_bar[11], tilt_bar[11], energy_bar[11];
-        
-        // Create visual bars for each parameter
-        int blink_level = (int)(face.eye_blink * 10);
-        int smile_level = (int)((face.mouth_smile + 1.0f) * 5); // -1 to 1 -> 0 to 10
-        int tilt_level = (int)((face.head_tilt + 1.0f) * 5);   // -1 to 1 -> 0 to 10
-        int energy_level = (int)(face.energy_level * 10);
-        
-        for (int i = 0; i < 10; i++) {
-            blink_bar[i] = (i < blink_level) ? '#' : '.';
-            smile_bar[i] = (i < smile_level) ? '#' : '.';
-            tilt_bar[i] = (i < tilt_level) ? '#' : '.';
-            energy_bar[i] = (i < energy_level) ? '#' : '.';
+    // Face circle
+    draw_circle(120, 140, 80, COLOR_SKIN);
+    
+    // Eyes based on expression
+    int eye_y = 120;
+    int eye_size = 12;
+    
+    switch (face.expression) {
+        case 1: // Happy - smaller eyes
+            eye_size = 8;
+            break;
+        case 2: // Surprised - bigger eyes
+            eye_size = 16;
+            break;
+        case 3: // Sleepy - half closed
+            eye_y = 125;
+            eye_size = 6;
+            break;
+        default: // Neutral
+            break;
+    }
+    
+    draw_circle(100, eye_y, eye_size, COLOR_WHITE);
+    draw_circle(140, eye_y, eye_size, COLOR_WHITE);
+    draw_circle(100, eye_y, eye_size/2, COLOR_BLACK);
+    draw_circle(140, eye_y, eye_size/2, COLOR_BLACK);
+    
+    // Audio reactive mouth
+    int mouth_width = 20 + (int)(face.mouth_open * 40);  // 20-60 pixels wide
+    int mouth_height = 8 + (int)(face.mouth_open * 20);  // 8-28 pixels tall
+    int mouth_y = 160;
+    
+    // Different mouth shapes based on expression
+    uint16_t mouth_color = COLOR_MOUTH;
+    switch (face.expression) {
+        case 1: // Happy - curved smile
+            mouth_color = COLOR_RED;
+            for (int x = -mouth_width/2; x <= mouth_width/2; x++) {
+                int curve_y = mouth_y + (x*x) / (mouth_width/4);
+                draw_rect(120 + x, curve_y, 1, 4, mouth_color);
+            }
+            break;
+        case 2: // Surprised - O shape
+            draw_circle(120, mouth_y, mouth_width/4, mouth_color);
+            draw_circle(120, mouth_y, mouth_width/6, COLOR_BLACK);
+            break;
+        case 3: // Sleepy - small line
+            draw_rect(120 - 10, mouth_y, 20, 2, mouth_color);
+            break;
+        default: // Neutral - oval
+            for (int y = 0; y < mouth_height; y++) {
+                int line_width = (int)(mouth_width * sinf(M_PI * y / mouth_height));
+                int line_x = 120 - line_width/2;
+                draw_rect(line_x, mouth_y + y, line_width, 1, mouth_color);
+            }
+            break;
+    }
+    
+    // Audio level indicator bars
+    for (int i = 0; i < 10; i++) {
+        int bar_height = (int)(face.audio_level * 50 * (i + 1) / 10);
+        uint16_t bar_color = (i < 3) ? COLOR_GREEN : (i < 7) ? COLOR_YELLOW : COLOR_RED;
+        if (bar_height > 0) {
+            draw_rect(10 + i * 8, 50 - bar_height, 6, bar_height, bar_color);
         }
-        blink_bar[10] = smile_bar[10] = tilt_bar[10] = energy_bar[10] = '\0';
-        
-        ESP_LOGI(TAG, "[FACE] Face State: %s", expression_names[current_expression]);
-        ESP_LOGI(TAG, "   Blink:  [%s] %.2f", blink_bar, face.eye_blink);
-        ESP_LOGI(TAG, "   Smile:  [%s] %.2f", smile_bar, face.mouth_smile);
-        ESP_LOGI(TAG, "   Tilt:   [%s] %.2f", tilt_bar, face.head_tilt);
-        ESP_LOGI(TAG, "   Energy: [%s] %.2f", energy_bar, face.energy_level);
-        
-        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    
+    // Connection status indicator
+    if (face.bt_connected) {
+        draw_circle(20, 20, 8, COLOR_BLUE);  // Blue dot = connected
+        // Bluetooth symbol (simplified)
+        draw_rect(18, 15, 2, 10, COLOR_WHITE);
+        draw_rect(16, 17, 6, 2, COLOR_WHITE);
+        draw_rect(16, 21, 6, 2, COLOR_WHITE);
+    } else {
+        draw_circle(20, 20, 8, COLOR_RED);   // Red dot = disconnected
+    }
+    
+    // Frame counter
+    char frame_text[32];
+    snprintf(frame_text, sizeof(frame_text), "Frame: %lu", face.frame_count);
+    // Simple text display would need a font library, so we'll skip for now
+}
+
+// Simulate audio input (replace with real Bluetooth A2DP later)
+static void simulate_audio(void)
+{
+    static float phase = 0;
+    phase += 0.1f;
+    
+    // Simulate music with varying intensity
+    face.audio_level = (sinf(phase) + 1.0f) * 0.5f * (0.5f + 0.5f * sinf(phase * 0.3f));
+    face.mouth_open = face.audio_level * 0.8f + 0.2f * sinf(phase * 2.0f);
+    
+    // Change expression occasionally
+    if ((int)(phase * 10) % 100 == 0) {
+        face.expression = (face.expression + 1) % 4;
     }
 }
 
-// Main animation loop with simulated display rendering
-static void animation_task(void *pvParameters) {
-    face.last_update = esp_timer_get_time();
+// Initialize Bluetooth (simplified for now)
+static void bt_init(void)
+{
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_BLE));
     
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
+    ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT));
+    ESP_ERROR_CHECK(esp_bluedroid_init());
+    ESP_ERROR_CHECK(esp_bluedroid_enable());
+    
+    // Set device name (using deprecated but working API for now)
+    esp_bt_dev_set_device_name("ESP32-AudioFace");
+    
+    face.bt_connected = true; // Simulate connection for demo
+    
+    ESP_LOGI(TAG, "Bluetooth initialized - Device: ESP32-AudioFace");
+}
+
+// Initialize SD card (if available)
+static void sd_init(void)
+{
+    ESP_LOGI(TAG, "Initializing SD card");
+    
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+        .format_if_mount_failed = false,
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+    
+    sdmmc_card_t *card;
+    const char mount_point[] = "/sdcard";
+    
+    ESP_LOGI(TAG, "Using SPI peripheral");
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    spi_bus_config_t bus_cfg = {
+        .mosi_io_num = PIN_NUM_SD_MOSI,
+        .miso_io_num = PIN_NUM_SD_MISO,
+        .sclk_io_num = PIN_NUM_SD_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4000,
+    };
+    
+    esp_err_t ret = spi_bus_initialize(host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize bus.");
+        return;
+    }
+    
+    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+    slot_config.gpio_cs = PIN_NUM_SD_CS;
+    slot_config.host_id = host.slot;
+    
+    ret = esp_vfs_fat_sdspi_mount(mount_point, &host, &slot_config, &mount_config, &card);
+    
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount filesystem.");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s).", esp_err_to_name(ret));
+        }
+        return;
+    }
+    
+    ESP_LOGI(TAG, "SD card mounted successfully");
+    sdmmc_card_print_info(stdout, card);
+}
+
+// Animation task
+static void animation_task(void *pvParameters)
+{
     while (1) {
-        update_face_animation();
+        face.frame_count++;
         
-        // Simulate display rendering
-        if (face.frame_count % 30 == 0) {
-            ESP_LOGI(TAG, "[RENDER] Frame %lu: Rendering %s on 240x240 LCD", 
-                     face.frame_count, expression_names[current_expression]);
+        // Simulate audio input
+        simulate_audio();
+        
+        // Draw the face
+        draw_audio_face();
+        
+        // Log status every 60 frames (2 seconds at 30 FPS)
+        if (face.frame_count % 60 == 0) {
+            ESP_LOGI(TAG, "Frame %lu | Expression: %d | Audio: %.2f | Mouth: %.2f", 
+                     face.frame_count, face.expression, face.audio_level, face.mouth_open);
         }
         
         vTaskDelay(pdMS_TO_TICKS(33)); // ~30 FPS
     }
 }
 
-void app_main(void) {
-    ESP_LOGI(TAG, "ESP32-S3 Advanced Face Animation Demo");
-    ESP_LOGI(TAG, "Features: AI Behavior, Sensor Fusion, Real-time Animation");
-    ESP_LOGI(TAG, "Target: 240x240 Touch LCD with 30 FPS Animation");
-    ESP_LOGI(TAG, "Multi-core: Animation on Core 1, AI/Sensors on Core 0");
+void app_main(void)
+{
+    ESP_LOGI(TAG, "ESP32-S3 Audio Reactive Face Starting...");
     
     // Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -224,36 +343,25 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
     
-    // Create sensor data queue
-    sensor_queue = xQueueCreate(10, sizeof(sensor_data_t));
-    if (sensor_queue == NULL) {
-        ESP_LOGE(TAG, "Failed to create sensor queue");
-        return;
-    }
+    // Initialize LCD
+    lcd_init();
+    ESP_LOGI(TAG, "LCD initialized - 240x280 ST7789");
     
-    // Initialize face state
-    face.energy_level = 0.5f;
-    current_expression = EXPR_NEUTRAL;
+    // Initialize SD card (optional)
+    sd_init();
     
-    ESP_LOGI(TAG, "System initialized - Starting multi-core tasks");
+    // Initialize Bluetooth
+    bt_init();
     
-    // Create tasks on different cores for optimal performance
-    BaseType_t result;
+    // Show initial face
+    draw_audio_face();
     
-    result = xTaskCreatePinnedToCore(animation_task, "animation", 4096, NULL, 5, NULL, 1);
-    if (result != pdPASS) ESP_LOGE(TAG, "Failed to create animation task");
+    // Start animation
+    xTaskCreate(animation_task, "animation", 8192, NULL, 5, NULL);
     
-    result = xTaskCreatePinnedToCore(sensor_task, "sensors", 2048, NULL, 3, NULL, 0);
-    if (result != pdPASS) ESP_LOGE(TAG, "Failed to create sensor task");
-    
-    result = xTaskCreatePinnedToCore(behavior_task, "behavior", 3072, NULL, 4, NULL, 0);
-    if (result != pdPASS) ESP_LOGE(TAG, "Failed to create behavior task");
-    
-    result = xTaskCreatePinnedToCore(performance_task, "performance", 2048, NULL, 2, NULL, 1);
-    if (result != pdPASS) ESP_LOGE(TAG, "Failed to create performance task");
-    
-    ESP_LOGI(TAG, "Advanced face animation system active!");
-    ESP_LOGI(TAG, "AI behaviors: Motion response, Light adaptation, Temperature reaction");
-    ESP_LOGI(TAG, "Watch the console for real-time sensor data and performance metrics");
-    ESP_LOGI(TAG, "Visual bars show real-time face parameters");
+    ESP_LOGI(TAG, "Audio Reactive Face Ready!");
+    ESP_LOGI(TAG, "- Simulated audio reactive mouth");
+    ESP_LOGI(TAG, "- Multiple facial expressions");
+    ESP_LOGI(TAG, "- Audio level visualization");
+    ESP_LOGI(TAG, "- Bluetooth ready for future A2DP integration");
 }
