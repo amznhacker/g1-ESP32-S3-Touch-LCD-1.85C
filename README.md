@@ -16,14 +16,14 @@ Animated face display with audio reactive features, Bluetooth connectivity, and 
 **Ubuntu (SSH keys configured):**
 
 ```bash
-git clone git@github.com:ramigony/g1-ESP32-S3-Touch-LCD-1.85C.git
+git clone git@github.com:amznhacker/g1-ESP32-S3-Touch-LCD-1.85C.git
 cd g1-ESP32-S3-Touch-LCD-1.85C
 python3 setup.py
 ```
 
 **WSL/Windows (HTTPS):**
 ```bash
-git clone https://github.com/ramigony/g1-ESP32-S3-Touch-LCD-1.85C.git
+git clone https://github.com/amznhacker/g1-ESP32-S3-Touch-LCD-1.85C.git
 cd g1-ESP32-S3-Touch-LCD-1.85C
 python3 setup.py
 ```
